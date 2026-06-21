@@ -519,11 +519,11 @@ def _show_analytics():
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("📝 Toplam", f"{total_solved}")
+        st.metric("✅ Doğru", f"{total_solved}")
     with col2:
-        st.metric("✅ Net Doğru", f"{net}")
-    with col3:
         st.metric("❌ Yanlış", f"{total_incorrect}")
+    with col3:
+        st.metric("📊 Net", f"{net}")
     with col4:
         st.metric("⚠️ Hata Oranı", f"{error_rate:.0f}%")
 
