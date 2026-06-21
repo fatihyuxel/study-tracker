@@ -93,11 +93,16 @@ def _read_sheet(sheet_name: str, columns: list[str]) -> pd.DataFrame:
         ensure_sheets()
         ws = sh.worksheet(sheet_name)
 
-    records = ws.get_all_records()  # ilk satırı başlık olarak kullanır
-    if not records:
+    # UNFORMATTED_VALUE kullanarak numericise hatasını önle:
+    # Türkçe locale'de "17,3" → 173 olmasını engeller.
+    # Ham float değerleri (17.3) olarak gelir.
+    values = ws.get_all_values(value_render_option='UNFORMATTED_VALUE')
+    if not values or len(values) < 2:
         return pd.DataFrame(columns=columns)
 
-    df = pd.DataFrame(records)
+    header = values[0]
+    data = values[1:]
+    df = pd.DataFrame(data, columns=header)
     # Eksik sütunları tamamla
     for col in columns:
         if col not in df.columns:
@@ -501,6 +506,17 @@ def get_streak(child_name: str) -> int:
 #  SINAV İŞLEMLERİ
 # ═══════════════════════════════════════════════════════════════
 
+def _fix_decimal(val) -> float:
+    """Türkçe ondalık formatını float'a çevir: '17,3' → 17.3, '173' → 173.0."""
+    if pd.isna(val):
+        return 0.0
+    s = str(val).strip().replace(",", ".")
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 @st.cache_data(ttl=60)
 def get_exam_logs() -> pd.DataFrame:
     """Tüm sınav ders loglarını oku."""
@@ -510,12 +526,8 @@ def get_exam_logs() -> pd.DataFrame:
         df["ExamName"] = df["ExamName"].astype(str)
         for col in ["Correct", "Incorrect", "Blank"]:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
-        # Virgül ile ayrılmış ondalıkları düzelt (17,3 → 17.3)
-        if "Net" in df.columns:
-            df["Net"] = df["Net"].astype(str).str.replace(",", ".").str.strip()
-            df["Net"] = pd.to_numeric(df["Net"], errors="coerce").fillna(0.0)
-        else:
-            df["Net"] = 0.0
+        # Net: virgül ile ayrılmış ondalıkları düzelt (17,3 → 17.3)
+        df["Net"] = df["Net"].apply(_fix_decimal)
     return df
 
 
@@ -525,7 +537,8 @@ def get_exam_results() -> pd.DataFrame:
     df = _read_sheet(SHEET_EXAM_RESULTS, EXAM_RESULTS_COLUMNS)
     if not df.empty:
         df["ExamDate"] = df["ExamDate"].astype(str)
-        df["Score"] = pd.to_numeric(df["Score"], errors="coerce").fillna(0.0)
+        # Score: Türkçe ondalık desteği (422,050 → 422.05)
+        df["Score"] = df["Score"].apply(_fix_decimal)
         df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce").fillna(0).astype(int)
     return df
 
