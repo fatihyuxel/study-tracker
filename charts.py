@@ -72,6 +72,7 @@ def chart_daily_trend(logs: pd.DataFrame, children: list[str] = None) -> go.Figu
         ))
 
     _apply_layout(fig, "📈 Günlük Soru Trendi")
+    fig.update_xaxes(tickformat="%d %b")
     return fig
 
 
