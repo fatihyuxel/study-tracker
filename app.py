@@ -261,7 +261,7 @@ def show_child_workspace(child_name: str):
 
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.markdown(f"**{subject}** — {solved}/{target_count}")
+                st.markdown(f"**{subject}** — {target_count} soru")
                 st.progress(pct)
             with col2:
                 st.markdown(f"<div style='text-align:center; padding-top:8px; color:{color}; font-weight:700;'>{int(pct*100)}%</div>",
@@ -283,15 +283,6 @@ def show_child_workspace(child_name: str):
         st.metric("📝 Bu Hafta", f"{week_actual} soru")
 
     st.markdown("---")
-
-    # ─── HAFTALIK HEDEF vs GERÇEKLEŞEN ───────────────────────
-    if week_progress:
-        st.plotly_chart(
-            chart_weekly_target_comparison(week_progress, child_name),
-            use_container_width=True,
-            config=dict(displayModeBar=False, responsive=True),
-        )
-        st.markdown("---")
 
     # ─── VERİ GİRİŞİ FORMU ──────────────────────────────────
     _show_data_entry_form(child_name, today, today_targets)
