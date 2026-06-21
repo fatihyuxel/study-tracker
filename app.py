@@ -466,12 +466,21 @@ def _show_bahar_workspace(child_name: str):
         )
 
     # ─── METRİK KARTLARI ─────────────────────────────────────
-    today_books = get_bahar_books_for_date(today)
-    today_pages = int(today_books["PagesRead"].sum()) if not today_books.empty else 0
+    try:
+        today_books = get_bahar_books_for_date(today)
+        today_pages = int(today_books["PagesRead"].sum()) if not today_books.empty else 0
+    except Exception:
+        today_pages = 0
 
-    today_questions = get_bahar_questions_for_date(today) or 0
+    try:
+        today_questions = get_bahar_questions_for_date(today) or 0
+    except Exception:
+        today_questions = 0
 
-    streak = get_bahar_streak()
+    try:
+        streak = get_bahar_streak()
+    except Exception:
+        streak = 0
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -548,7 +557,10 @@ def _show_bahar_past_records(child_name: str):
 
     # ─── Kitap Okuma Geçmişi ─────────────────────────────────
     with tab_books:
-        books = get_bahar_books()
+        try:
+            books = get_bahar_books()
+        except Exception:
+            books = pd.DataFrame(columns=["Date", "ChildName", "BookName", "PagesRead"])
         if books.empty:
             st.info("Henüz kitap okuma kaydı yok.")
         else:
@@ -584,7 +596,10 @@ def _show_bahar_past_records(child_name: str):
 
     # ─── Soru Geçmişi ────────────────────────────────────────
     with tab_questions:
-        questions = get_bahar_questions()
+        try:
+            questions = get_bahar_questions()
+        except Exception:
+            questions = pd.DataFrame(columns=["Date", "ChildName", "TotalQuestions"])
         if questions.empty:
             st.info("Henüz soru kaydı yok.")
         else:
@@ -687,8 +702,14 @@ def _show_analytics():
     if child_filter == "Bahar":
         from charts import chart_bahar_books_daily, chart_bahar_questions_daily
 
-        books = get_bahar_books()
-        questions = get_bahar_questions()
+        try:
+            books = get_bahar_books()
+        except Exception:
+            books = pd.DataFrame(columns=["Date", "ChildName", "BookName", "PagesRead"])
+        try:
+            questions = get_bahar_questions()
+        except Exception:
+            questions = pd.DataFrame(columns=["Date", "ChildName", "TotalQuestions"])
 
         bahar_books = books[books["Date"] == selected_date] if not books.empty else pd.DataFrame()
         bahar_q = questions[questions["Date"] == selected_date] if not questions.empty else pd.DataFrame()
