@@ -6,6 +6,7 @@ Mobil uyumlu tasarım
 
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 
@@ -24,10 +25,6 @@ from data import (
     add_holiday, remove_holiday,
     get_exam_logs, get_exam_results, get_exam_subjects,
     calculate_net, save_exam, get_child_exam_results, get_child_exam_logs,
-)
-from charts import (
-    chart_daily_trend, chart_error_analysis,
-    chart_subject_distribution, chart_weekly_target_comparison,
 )
 
 
@@ -180,7 +177,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption(f"🕐 {datetime.now(ZoneInfo(TR_TZ)).strftime('%d.%m.%Y %H:%M')}")
-    st.caption("v2.2 — ondalık fix")
+    st.caption("v2.3 — revizyonlar")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -288,7 +285,7 @@ def show_child_workspace(child_name: str):
 
 def _show_data_entry_form(child_name: str, today: str, today_targets):
     """Veri giriş formu."""
-    st.markdown(f"### {EMOJI['pencil']} Günlük Çalışma Sonuçları")
+    st.markdown(f"### {EMOJI['pencil']} Çalışmalarını Kaydet")
 
     # Ders listesi: plan + subjects birleşimi
     planned_subjects = []
@@ -319,7 +316,7 @@ def _show_data_entry_form(child_name: str, today: str, today_targets):
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            solved = st.number_input("✅ Doğru Sayısı", min_value=0, step=1, value=0)
+            solved = st.number_input("✅ Doğru", min_value=0, step=1, value=0)
         with col2:
             incorrect = st.number_input("❌ Yanlış", min_value=0, step=1, value=0)
         with col3:
@@ -365,7 +362,7 @@ def _show_data_entry_form(child_name: str, today: str, today_targets):
 
 def _show_past_records(child_name: str):
     """Geçmiş kayıtları göster ve düzenlemeye izin ver."""
-    st.markdown(f"### {EMOJI['calendar']} Geçmiş Kayıtlarım")
+    st.markdown(f"### {EMOJI['calendar']} Geçmiş Kayıtları Düzelt")
 
     logs = get_logs()
     if logs.empty:
@@ -531,32 +528,9 @@ def _show_analytics():
 
     st.markdown("---")
 
-    # Grafikler (tarih aralığına göre)
+    # Ham veri
     child_logs = logs[logs["ChildName"] == child_filter].copy()
     if not child_logs.empty:
-        # Grafik 1: Trend
-        st.plotly_chart(
-            chart_daily_trend(child_logs, [child_filter]),
-            use_container_width=True,
-            config=dict(displayModeBar=False, responsive=True),
-        )
-
-        # Grafik 2 ve 3 yan yana
-        col1, col2 = st.columns(2)
-        with col1:
-            st.plotly_chart(
-                chart_error_analysis(child_logs, child_filter),
-                use_container_width=True,
-                config=dict(displayModeBar=False, responsive=True),
-            )
-        with col2:
-            st.plotly_chart(
-                chart_subject_distribution(child_logs, child_filter),
-                use_container_width=True,
-                config=dict(displayModeBar=False, responsive=True),
-            )
-
-        # Ham veri
         with st.expander("📋 Ham Veri", expanded=False):
             display_logs = child_logs[["Date", "Subject", "Solved", "Incorrect", "Blank"]].copy()
             display_logs.columns = ["Tarih", "Ders", "Doğru", "Yanlış", "Boş"]
@@ -730,7 +704,7 @@ def _show_holiday_management():
 
 def _show_exam_entry(child_name: str):
     """Deneme sınavı sonuçlarını gir."""
-    st.markdown("### 📝 Deneme Sınavı Sonuçları")
+    st.markdown("### 📝 Deneme Sınavı Sonuçlarını Kaydet")
     
     # Sınav türü seçimi (şimdilik sadece LGS)
     exam_type = EXAM_TYPES[0]  # LGS
@@ -738,12 +712,7 @@ def _show_exam_entry(child_name: str):
     # Session state ile çift kaydı engelle
     if "exam_saved" not in st.session_state:
         st.session_state.exam_saved = False
-    
-    # Eğer vừa kaydedildiyse mesaj göster
-    if st.session_state.exam_saved:
-        st.success(f"{EMOJI['success']} Kayıt başarıyla tamamlandı! Yeni sınav girmek için formu doldurun.")
-        st.session_state.exam_saved = False
-    
+
     with st.form("exam_entry_form", clear_on_submit=True):
         # Sınav tarihi
         exam_date = st.date_input(
@@ -775,7 +744,7 @@ def _show_exam_entry(child_name: str):
             )
         
         # Ders bazlı sonuçlar
-        st.markdown(f"#### 📚 {exam_type} Ders Sonuçları")
+        st.markdown(f"#### 📚 Doğru/Yanlışlarını Kaydet")
         
         subjects = get_exam_subjects(exam_type)
         subjects_data = []
@@ -846,6 +815,11 @@ def _show_exam_entry(child_name: str):
                 st.session_state.exam_saved = True
                 st.rerun()
 
+    # Bildirim mesajı form altında göster
+    if st.session_state.exam_saved:
+        st.success(f"{EMOJI['success']} Kayıt başarıyla tamamlandı! Yeni sınav girmek için formu doldurun.")
+        st.session_state.exam_saved = False
+
 
 # ─── SINAV ANALİZİ TAB'I ─────────────────────────────────────
 
@@ -883,24 +857,63 @@ def _show_exam_analysis():
     if len(results) > 1:
         st.markdown("#### 📈 Trend Grafikleri")
         
+        chart_data = results.sort_values("ExamDate").copy()
+        chart_data["Tarih"] = chart_data["ExamDate"].apply(
+            lambda x: _format_date_tr(x).split(",")[0]
+        )
+        
         # Puan ve sıralama trendi
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("**Puan Trendi**")
-            chart_data = results[["ExamDate", "Score"]].sort_values("ExamDate")
-            chart_data["ExamDate"] = chart_data["ExamDate"].apply(
-                lambda x: _format_date_tr(x).split(",")[0]
+            fig_score = go.Figure()
+            fig_score.add_trace(go.Scatter(
+                x=chart_data["Tarih"],
+                y=chart_data["Score"],
+                mode="lines+markers+text",
+                line=dict(color="#3b82f6", width=2),
+                marker=dict(size=8),
+                text=[f"{v:.1f}" for v in chart_data["Score"]],
+                textposition="top center",
+                textfont=dict(size=11, color="#e2e8f0"),
+            ))
+            fig_score.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(size=12, color="#e2e8f0"),
+                margin=dict(l=40, r=10, t=30, b=40),
+                yaxis=dict(gridcolor="rgba(255,255,255,0.1)", title=""),
+                xaxis=dict(gridcolor="rgba(255,255,255,0.1)", title=""),
+                height=300,
+                showlegend=False,
             )
-            st.line_chart(chart_data.set_index("ExamDate")["Score"], use_container_width=True)
+            st.plotly_chart(fig_score, use_container_width=True, config=dict(displayModeBar=False))
         
         with col2:
             st.markdown("**Sıralama Trendi** (Düşük = İyi)")
-            chart_data = results[["ExamDate", "Rank"]].sort_values("ExamDate")
-            chart_data["ExamDate"] = chart_data["ExamDate"].apply(
-                lambda x: _format_date_tr(x).split(",")[0]
+            fig_rank = go.Figure()
+            fig_rank.add_trace(go.Scatter(
+                x=chart_data["Tarih"],
+                y=chart_data["Rank"],
+                mode="lines+markers+text",
+                line=dict(color="#22c55e", width=2),
+                marker=dict(size=8),
+                text=[str(int(v)) for v in chart_data["Rank"]],
+                textposition="top center",
+                textfont=dict(size=11, color="#e2e8f0"),
+            ))
+            fig_rank.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(size=12, color="#e2e8f0"),
+                margin=dict(l=40, r=10, t=30, b=40),
+                yaxis=dict(gridcolor="rgba(255,255,255,0.1)", title="", autorange="reversed"),
+                xaxis=dict(gridcolor="rgba(255,255,255,0.1)", title=""),
+                height=300,
+                showlegend=False,
             )
-            st.line_chart(chart_data.set_index("ExamDate")["Rank"], use_container_width=True)
+            st.plotly_chart(fig_rank, use_container_width=True, config=dict(displayModeBar=False))
     
     # ─── DERS BAZINDA NET ORTALAMASI ────────────────────────────
     if not exam_logs.empty:
@@ -910,19 +923,71 @@ def _show_exam_analysis():
         avg_nets.columns = ["Ders", "Ortalama Net"]
         avg_nets = avg_nets.sort_values("Ortalama Net", ascending=False)
         
-        st.bar_chart(avg_nets.set_index("Ders")["Ortalama Net"], use_container_width=True)
+        fig_net = go.Figure(go.Bar(
+            x=avg_nets["Ders"],
+            y=avg_nets["Ortalama Net"],
+            marker_color="#3b82f6",
+            text=[f"{v:.1f}" for v in avg_nets["Ortalama Net"]],
+            textposition="outside",
+            textfont=dict(size=14, color="#e2e8f0"),
+        ))
+        fig_net.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(size=13, color="#e2e8f0"),
+            margin=dict(l=40, r=20, t=30, b=40),
+            yaxis=dict(gridcolor="rgba(255,255,255,0.1)", title=""),
+            xaxis=dict(title=""),
+            height=350,
+        )
+        st.plotly_chart(fig_net, use_container_width=True, config=dict(displayModeBar=False))
     
-    # ─── SON SINAV DETAYI ───────────────────────────────────────
+    # ─── SINAV DETAYI (AÇILIR MENÜ) ─────────────────────────────
     if not exam_logs.empty:
-        st.markdown("#### 🔍 Son Sınav Detayı")
+        st.markdown("#### 🔍 Sınav Detayı")
         
-        last_exam_date = results.iloc[0]["ExamDate"]
-        last_exam = exam_logs[exam_logs["ExamDate"] == last_exam_date].copy()
+        # Sınav tarihlerini tarih bazında sırala (en yeniden en eskiye)
+        exam_dates = sorted(exam_logs["ExamDate"].unique(), reverse=True)
         
-        if not last_exam.empty:
-            st.caption(f"Tarih: {_format_date_tr(last_exam_date)}")
+        # Sınav adlarını al (results'dan)
+        exam_name_map = {}
+        if "ExamName" in results.columns:
+            for _, row in results.iterrows():
+                exam_name_map[row["ExamDate"]] = row["ExamName"]
+        
+        # Seçenekleri oluştur: "Tarih - Sınav Adı" formatında
+        exam_options = []
+        for d in exam_dates:
+            name = exam_name_map.get(d, "")
+            label = f"{_format_date_tr(d)}"
+            if name:
+                label += f" — {name}"
+            exam_options.append((d, label))
+        
+        # Açılır menü
+        selected_label = st.selectbox(
+            "Sınav seçin",
+            [opt[1] for opt in exam_options],
+            key="exam_detail_select",
+        )
+        selected_date = exam_options[[opt[1] for opt in exam_options].index(selected_label)][0]
+        
+        # Seçilen sınavın detayını göster
+        selected_exam = exam_logs[exam_logs["ExamDate"] == selected_date].copy()
+        
+        if not selected_exam.empty:
+            # Sınav puanı ve sıralamasını göster
+            exam_info = results[results["ExamDate"] == selected_date]
+            if not exam_info.empty:
+                score = exam_info.iloc[0]["Score"]
+                rank = exam_info.iloc[0]["Rank"]
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Puan", f"{score:.3f}")
+                with col2:
+                    st.metric("Sıralama", f"{rank}")
             
-            display_log = last_exam[["Subject", "Correct", "Incorrect", "Blank", "Net"]].copy()
+            display_log = selected_exam[["Subject", "Correct", "Incorrect", "Blank", "Net"]].copy()
             display_log.columns = ["Ders", "Doğru", "Yanlış", "Boş", "Net"]
             display_log["Net"] = display_log["Net"].apply(lambda x: f"{x:.1f}")
             st.dataframe(display_log, use_container_width=True, hide_index=True)
