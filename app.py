@@ -25,6 +25,10 @@ from data import (
     add_holiday, remove_holiday,
     get_exam_logs, get_exam_results, get_exam_subjects,
     calculate_net, save_exam, get_child_exam_results, get_child_exam_logs,
+    get_bahar_books, get_bahar_questions,
+    save_bahar_book, save_bahar_questions,
+    get_bahar_books_for_date, get_bahar_questions_for_date,
+    update_bahar_book, delete_bahar_book, get_bahar_streak,
 )
 
 
@@ -186,6 +190,11 @@ with st.sidebar:
 
 def show_child_workspace(child_name: str):
     """Çocuk ana sayfası."""
+    # Bahar'ın farklı takip modeli var
+    if child_name == "Bahar":
+        _show_bahar_workspace(child_name)
+        return
+
     today = today_str()
     weekday = today_weekday()
     day_name = DAY_NAMES[weekday]
@@ -422,6 +431,183 @@ def _format_date_tr(d: str) -> str:
         return f"{dt.day} {months_tr[dt.month]} {dt.year}, {day_name}"
     except Exception:
         return d
+
+
+# ═══════════════════════════════════════════════════════════════
+#  BAHAR WORKSPACE
+# ═══════════════════════════════════════════════════════════════
+
+def _show_bahar_workspace(child_name: str):
+    """Bahar'ın ana sayfası — kitap okuma + soru takibi."""
+    today = today_str()
+    weekday = today_weekday()
+    day_name = DAY_NAMES[weekday]
+    months_tr = {
+        1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan",
+        5: "Mayıs", 6: "Haziran", 7: "Temmuz", 8: "Ağustos",
+        9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık"
+    }
+    now = datetime.now(ZoneInfo(TR_TZ))
+    formatted_date = f"{now.day} {months_tr[now.month]} {now.year}"
+
+    st.markdown(f"## {EMOJI['calendar']} {formatted_date} — {day_name}")
+    st.markdown(f"### Hoş geldin, {child_name}! 👋")
+
+    # ─── TATİL KONTROLÜ ──────────────────────────────────────
+    holiday = is_holiday(today)
+    if holiday:
+        holidays_df = get_holidays()
+        reason_row = holidays_df[holidays_df["Date"] == today]
+        reason = reason_row.iloc[0]["Reason"] if not reason_row.empty else ""
+        reason_text = f" — {reason}" if reason else ""
+        st.markdown(
+            f'<div class="holiday-banner">🏖️ Bugün tatil!{reason_text}<br>İstersen yine de çalışabilirsin 📖</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ─── METRİK KARTLARI ─────────────────────────────────────
+    today_books = get_bahar_books_for_date(today)
+    today_pages = int(today_books["PagesRead"].sum()) if not today_books.empty else 0
+
+    today_questions = get_bahar_questions_for_date(today) or 0
+
+    streak = get_bahar_streak()
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("📚 Bugün Okunan Sayfa", today_pages)
+    with col2:
+        st.metric("📝 Bugün Çözülen Soru", today_questions)
+    with col3:
+        st.metric(f"{EMOJI['fire']} Streak", f"{streak} gün")
+
+    st.markdown("---")
+
+    # ─── KİTAP OKUMA FORMU ───────────────────────────────────
+    st.markdown("### 📚 Kitap Okuma Kaydet")
+    with st.form("bahar_book_entry", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            book_date = st.date_input(
+                "📅 Tarih",
+                value=now.date(),
+                max_value=now.date(),
+                format="DD.MM.YYYY",
+            )
+        with col2:
+            book_name = st.text_input("📖 Kitap Adı", placeholder="Kitap adını yazın")
+
+        pages_read = st.number_input("📄 Okunan Sayfa", min_value=0, step=1, value=0)
+
+        if st.form_submit_button(f"{EMOJI['save']} Kaydet", use_container_width=True):
+            if not book_name or not book_name.strip():
+                st.error("Lütfen kitap adını girin.")
+            elif pages_read <= 0:
+                st.error("Okunan sayfa sayısı 0'dan büyük olmalı.")
+            else:
+                save_bahar_book(book_date.strftime("%Y-%m-%d"), book_name.strip(), pages_read)
+                st.success(f"📚 '{book_name.strip()}' — {pages_read} sayfa kaydedildi!")
+                st.rerun()
+
+    st.markdown("---")
+
+    # ─── SORU FORMU ──────────────────────────────────────────
+    st.markdown("### 📝 Soru Kaydet")
+    with st.form("bahar_question_entry", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            q_date = st.date_input(
+                "📅 Tarih",
+                value=now.date(),
+                max_value=now.date(),
+                format="DD.MM.YYYY",
+                key="bahar_q_date",
+            )
+        with col2:
+            total_q = st.number_input("📝 Toplam Soru", min_value=0, step=1, value=0, key="bahar_q_total")
+
+        if st.form_submit_button(f"{EMOJI['save']} Kaydet", use_container_width=True):
+            if total_q <= 0:
+                st.error("Soru sayısı 0'dan büyük olmalı.")
+            else:
+                save_bahar_questions(q_date.strftime("%Y-%m-%d"), total_q)
+                st.success(f"📝 {total_q} soru kaydedildi!")
+                st.rerun()
+
+    st.markdown("---")
+
+    # ─── GEÇMİŞ KAYITLAR ─────────────────────────────────────
+    _show_bahar_past_records(child_name)
+
+
+def _show_bahar_past_records(child_name: str):
+    """Bahar'ın geçmiş kayıtlarını göster ve düzenlemeye izin ver."""
+    st.markdown(f"### {EMOJI['calendar']} Geçmiş Kayıtlar")
+
+    tab_books, tab_questions = st.tabs(["📚 Kitap Okuma", "📝 Sorular"])
+
+    # ─── Kitap Okuma Geçmişi ─────────────────────────────────
+    with tab_books:
+        books = get_bahar_books()
+        if books.empty:
+            st.info("Henüz kitap okuma kaydı yok.")
+        else:
+            dates = sorted(books["Date"].unique(), reverse=True)
+            selected_date = st.selectbox(
+                "📅 Tarih seçin",
+                dates,
+                format_func=_format_date_tr,
+                key="bahar_book_date",
+            )
+            if selected_date:
+                day_books = books[books["Date"] == selected_date]
+                for _, row in day_books.iterrows():
+                    book = row["BookName"]
+                    pages = int(row["PagesRead"])
+                    with st.expander(f"📖 {book} — {pages} sayfa", expanded=False):
+                        with st.form(f"edit_book_{selected_date}_{book}"):
+                            new_pages = st.number_input(
+                                "Sayfa", min_value=0, value=pages,
+                                key=f"bp_{selected_date}_{book}",
+                            )
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.form_submit_button(f"{EMOJI['save']} Güncelle", use_container_width=True):
+                                    update_bahar_book(selected_date, book, new_pages)
+                                    st.success("Güncellendi!")
+                                    st.rerun()
+                            with col2:
+                                if st.form_submit_button(f"{EMOJI['delete']} Sil", use_container_width=True):
+                                    delete_bahar_book(selected_date, book)
+                                    st.success("Silindi!")
+                                    st.rerun()
+
+    # ─── Soru Geçmişi ────────────────────────────────────────
+    with tab_questions:
+        questions = get_bahar_questions()
+        if questions.empty:
+            st.info("Henüz soru kaydı yok.")
+        else:
+            dates = sorted(questions["Date"].unique(), reverse=True)
+            selected_date = st.selectbox(
+                "📅 Tarih seçin",
+                dates,
+                format_func=_format_date_tr,
+                key="bahar_q_date_select",
+            )
+            if selected_date:
+                row = questions[questions["Date"] == selected_date].iloc[0]
+                total = int(row["TotalQuestions"])
+                with st.expander(f"📝 {total} soru", expanded=True):
+                    with st.form(f"edit_q_{selected_date}"):
+                        new_total = st.number_input(
+                            "Toplam Soru", min_value=0, value=total,
+                            key=f"qt_{selected_date}",
+                        )
+                        if st.form_submit_button(f"{EMOJI['save']} Güncelle", use_container_width=True):
+                            save_bahar_questions(selected_date, new_total)
+                            st.success("Güncellendi!")
+                            st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════
