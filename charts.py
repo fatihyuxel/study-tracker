@@ -200,3 +200,52 @@ def chart_weekly_target_comparison(
     _apply_layout(fig, title)
     fig.update_layout(barmode="group")
     return fig
+
+
+# ═══════════════════════════════════════════════════════════════
+#  BAHAR GRAFİKLERİ
+# ═══════════════════════════════════════════════════════════════
+
+def chart_bahar_books_daily(books: pd.DataFrame) -> go.Figure:
+    """Bahar'ın günlük okuduğu sayfa trendi."""
+    if books.empty:
+        fig = go.Figure()
+        _apply_layout(fig, "📚 Günlük Okunan Sayfa")
+        return fig
+
+    daily = books.groupby("Date")["PagesRead"].sum().reset_index()
+    daily = daily.sort_values("Date")
+
+    fig = go.Figure(go.Bar(
+        x=daily["Date"],
+        y=daily["PagesRead"],
+        marker_color="#8b5cf6",
+        text=daily["PagesRead"],
+        textposition="outside",
+    ))
+
+    _apply_layout(fig, "📚 Günlük Okunan Sayfa")
+    fig.update_xaxes(tickformat="%d %b", dtick=86400000)
+    return fig
+
+
+def chart_bahar_questions_daily(questions: pd.DataFrame) -> go.Figure:
+    """Bahar'ın günlük çözdüğü soru trendi."""
+    if questions.empty:
+        fig = go.Figure()
+        _apply_layout(fig, "📝 Günlük Çözülen Soru")
+        return fig
+
+    daily = questions.sort_values("Date")
+
+    fig = go.Figure(go.Bar(
+        x=daily["Date"],
+        y=daily["TotalQuestions"],
+        marker_color="#3b82f6",
+        text=daily["TotalQuestions"],
+        textposition="outside",
+    ))
+
+    _apply_layout(fig, "📝 Günlük Çözülen Soru")
+    fig.update_xaxes(tickformat="%d %b", dtick=86400000)
+    return fig

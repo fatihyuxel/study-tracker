@@ -682,6 +682,52 @@ def _show_analytics():
 
     # Seçilen tarihe göre filtrele
     selected_date = st.session_state.analytics_date.strftime("%Y-%m-%d")
+
+    # ─── BAHAR'A ÖZEL ANALİZ ──────────────────────────────────
+    if child_filter == "Bahar":
+        from charts import chart_bahar_books_daily, chart_bahar_questions_daily
+
+        books = get_bahar_books()
+        questions = get_bahar_questions()
+
+        bahar_books = books[books["Date"] == selected_date] if not books.empty else pd.DataFrame()
+        bahar_q = questions[questions["Date"] == selected_date] if not questions.empty else pd.DataFrame()
+
+        # Metric cards
+        total_pages = int(bahar_books["PagesRead"].sum()) if not bahar_books.empty else 0
+        total_questions = int(bahar_q["TotalQuestions"].sum()) if not bahar_q.empty else 0
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("📚 Okunan Sayfa", total_pages)
+        with col2:
+            st.metric("📝 Çözülen Soru", total_questions)
+
+        st.markdown("---")
+
+        # Grafikler
+        st.plotly_chart(chart_bahar_books_daily(books), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_bahar_questions_daily(questions), use_container_width=True, config={"displayModeBar": False})
+
+        # Ham veri
+        with st.expander("📋 Ham Veri", expanded=False):
+            if not books.empty:
+                st.markdown("**Kitap Okuma:**")
+                display_books = books[["Date", "BookName", "PagesRead"]].copy()
+                display_books.columns = ["Tarih", "Kitap", "Sayfa"]
+                display_books["Tarih"] = display_books["Tarih"].apply(_format_date_tr)
+                st.dataframe(display_books, use_container_width=True, hide_index=True)
+
+            if not questions.empty:
+                st.markdown("**Sorular:**")
+                display_q = questions[["Date", "TotalQuestions"]].copy()
+                display_q.columns = ["Tarih", "Soru"]
+                display_q["Tarih"] = display_q["Tarih"].apply(_format_date_tr)
+                st.dataframe(display_q, use_container_width=True, hide_index=True)
+
+        return  # Bahar için mevcut grafikleri gösterme
+
+    # ─── NORMAL ANALİZ (Ayşe Bade / Elmas) ────────────────────
     filtered = logs[(logs["ChildName"] == child_filter) & (logs["Date"] == selected_date)]
 
     if filtered.empty:
