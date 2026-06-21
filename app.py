@@ -755,104 +755,111 @@ def _show_exam_entry(child_name: str):
     # Sınav türü seçimi (şimdilik sadece LGS)
     exam_type = EXAM_TYPES[0]  # LGS
     
-    # Sınav tarihi
-    exam_date = st.date_input(
-        "Sınav Tarihi",
-        value=datetime.now(ZoneInfo(TR_TZ)).date(),
-        format="DD.MM.YYYY",
-        key="exam_date",
-    )
+    # Session state ile çift kaydı engelle
+    if "exam_saved" not in st.session_state:
+        st.session_state.exam_saved = False
     
-    # Sınav puanı ve sıralama
-    col1, col2 = st.columns(2)
-    with col1:
-        score = st.number_input(
-            "Sınav Puanı",
-            min_value=0.0,
-            max_value=500.0,
-            value=0.0,
-            step=0.001,
-            format="%.3f",
-            key="exam_score",
+    # Eğer vừa kaydedildiyse mesaj göster
+    if st.session_state.exam_saved:
+        st.success(f"{EMOJI['success']} Kayıt başarıyla tamamlandı! Yeni sınav girmek için formu doldurun.")
+        st.session_state.exam_saved = False
+    
+    with st.form("exam_entry_form", clear_on_submit=True):
+        # Sınav tarihi
+        exam_date = st.date_input(
+            "Sınav Tarihi",
+            value=datetime.now(ZoneInfo(TR_TZ)).date(),
+            format="DD.MM.YYYY",
         )
-    with col2:
-        rank = st.number_input(
-            "Sıralama (Derece)",
-            min_value=1,
-            value=1,
-            step=1,
-            key="exam_rank",
-        )
-    
-    # Ders bazlı sonuçlar
-    st.markdown("---")
-    st.markdown(f"#### 📚 {exam_type} Ders Sonuçları")
-    
-    subjects = get_exam_subjects(exam_type)
-    subjects_data = []
-    
-    for subj_info in subjects:
-        subject = subj_info["Subject"]
-        total_q = subj_info["TotalQuestions"]
         
-        st.markdown(f"**{subject}** ({total_q} soru)")
-        col1, col2, col3 = st.columns(3)
-        
+        # Sınav puanı ve sıralama
+        col1, col2 = st.columns(2)
         with col1:
-            correct = st.number_input(
-                "Doğru",
-                min_value=0,
-                max_value=total_q,
-                value=0,
-                key=f"exam_correct_{subject}",
+            score = st.number_input(
+                "Sınav Puanı",
+                min_value=0.0,
+                max_value=500.0,
+                value=0.0,
+                step=0.001,
+                format="%.3f",
             )
         with col2:
-            incorrect = st.number_input(
-                "Yanlış",
-                min_value=0,
-                max_value=total_q,
-                value=0,
-                key=f"exam_incorrect_{subject}",
-            )
-        with col3:
-            blank = st.number_input(
-                "Boş",
-                min_value=0,
-                max_value=total_q,
-                value=0,
-                key=f"exam_blank_{subject}",
+            rank = st.number_input(
+                "Sıralama (Derece)",
+                min_value=1,
+                value=1,
+                step=1,
             )
         
-        # Net hesapla ve göster
-        net = calculate_net(correct, incorrect)
-        st.caption(f"Net: {net} | Toplam: {correct + incorrect + blank}/{total_q}")
+        # Ders bazlı sonuçlar
+        st.markdown(f"#### 📚 {exam_type} Ders Sonuçları")
         
-        # Doğrulama
-        if correct + incorrect + blank > total_q:
-            st.error(f"⚠️ {subject}: Toplam soru sayısı {total_q}'ı geçemez!")
+        subjects = get_exam_subjects(exam_type)
+        subjects_data = []
         
-        subjects_data.append({
-            "Subject": subject,
-            "Correct": correct,
-            "Incorrect": incorrect,
-            "Blank": blank,
-        })
-    
-    # Kaydet butonu
-    st.markdown("---")
-    if st.button(f"{EMOJI['save']} Sınav Sonuçlarını Kaydet", use_container_width=True, type="primary"):
-        # Doğrulama
-        total_correct = sum(d["Correct"] for d in subjects_data)
-        total_incorrect = sum(d["Incorrect"] for d in subjects_data)
-        total_blank = sum(d["Blank"] for d in subjects_data)
+        for subj_info in subjects:
+            subject = subj_info["Subject"]
+            total_q = subj_info["TotalQuestions"]
+            
+            st.markdown(f"**{subject}** ({total_q} soru)")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                correct = st.number_input(
+                    "Doğru",
+                    min_value=0,
+                    max_value=total_q,
+                    value=0,
+                    key=f"exam_correct_{subject}",
+                )
+            with col2:
+                incorrect = st.number_input(
+                    "Yanlış",
+                    min_value=0,
+                    max_value=total_q,
+                    value=0,
+                    key=f"exam_incorrect_{subject}",
+                )
+            with col3:
+                blank = st.number_input(
+                    "Boş",
+                    min_value=0,
+                    max_value=total_q,
+                    value=0,
+                    key=f"exam_blank_{subject}",
+                )
+            
+            # Net hesapla ve göster
+            net = calculate_net(correct, incorrect)
+            st.caption(f"Net: {net} | Toplam: {correct + incorrect + blank}/{total_q}")
+            
+            # Doğrulama
+            if correct + incorrect + blank > total_q:
+                st.error(f"⚠️ {subject}: Toplam soru sayısı {total_q}'ı geçemez!")
+            
+            subjects_data.append({
+                "Subject": subject,
+                "Correct": correct,
+                "Incorrect": incorrect,
+                "Blank": blank,
+            })
         
-        if total_correct + total_incorrect + total_blank == 0:
-            st.error("En az bir ders için veri girilmeli!")
-        else:
-            exam_date_str = exam_date.strftime("%Y-%m-%d")
-            save_exam(child_name, exam_type, exam_date_str, score, rank, subjects_data)
-            st.success(f"{EMOJI['success']} {child_name} - {exam_type} sınav sonuçları kaydedildi!")
-            st.rerun()
+        # Kaydet butonu
+        submitted = st.form_submit_button(f"{EMOJI['save']} Sınav Sonuçlarını Kaydet", use_container_width=True, type="primary")
+        
+        if submitted:
+            # Doğrulama
+            total_correct = sum(d["Correct"] for d in subjects_data)
+            total_incorrect = sum(d["Incorrect"] for d in subjects_data)
+            total_blank = sum(d["Blank"] for d in subjects_data)
+            
+            if total_correct + total_incorrect + total_blank == 0:
+                st.error("En az bir ders için veri girilmeli!")
+            else:
+                exam_date_str = exam_date.strftime("%Y-%m-%d")
+                save_exam(child_name, exam_type, exam_date_str, score, rank, subjects_data)
+                st.session_state.exam_saved = True
+                st.rerun()
 
 
 # ─── SINAV ANALİZİ TAB'I ─────────────────────────────────────
