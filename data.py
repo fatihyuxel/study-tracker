@@ -154,6 +154,30 @@ def get_holidays() -> pd.DataFrame:
     return df
 
 
+# ═══════════════════════════════════════════════════════════════
+#  BAHAR İŞLEMLERİ — KİTAP OKUMA + SORU
+# ═══════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=60)
+def get_bahar_books() -> pd.DataFrame:
+    """Bahar'ın kitap okuma kayıtlarını oku."""
+    df = _read_sheet(SHEET_BAHAR_BOOKS, BAHAR_BOOKS_COLUMNS)
+    if not df.empty:
+        df["Date"] = df["Date"].astype(str)
+        df["PagesRead"] = pd.to_numeric(df["PagesRead"], errors="coerce").fillna(0).astype(int)
+    return df
+
+
+@st.cache_data(ttl=60)
+def get_bahar_questions() -> pd.DataFrame:
+    """Bahar'ın soru kayıtlarını oku."""
+    df = _read_sheet(SHEET_BAHAR_QUESTIONS, BAHAR_QUESTIONS_COLUMNS)
+    if not df.empty:
+        df["Date"] = df["Date"].astype(str)
+        df["TotalQuestions"] = pd.to_numeric(df["TotalQuestions"], errors="coerce").fillna(0).astype(int)
+    return df
+
+
 def clear_all_caches():
     """Tüm cache'leri temizle (veri yazdıktan sonra çağrılır)."""
     get_logs.clear()
@@ -162,6 +186,8 @@ def clear_all_caches():
     get_holidays.clear()
     get_exam_logs.clear()
     get_exam_results.clear()
+    get_bahar_books.clear()
+    get_bahar_questions.clear()
 
 
 # ═══════════════════════════════════════════════════════════════
