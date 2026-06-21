@@ -3,7 +3,7 @@ config.py — Study Tracker sabitler ve yapılandırma
 """
 
 # ─── Çocuk İsimleri ───────────────────────────────────────────
-CHILDREN = ["Ayşe Bade", "Elmas"]
+CHILDREN = ["Ayşe Bade", "Elmas", "Bahar"]
 
 # ─── Gün İsimleri (Pazartesi=0 ... Pazar=6) ──────────────────
 DAY_NAMES = {
@@ -58,9 +58,12 @@ SHEET_SUBJECTS    = "subjects"
 SHEET_HOLIDAYS    = "holidays"
 SHEET_EXAM_LOGS   = "exam_logs"
 SHEET_EXAM_RESULTS = "exam_results"
+SHEET_BAHAR_BOOKS      = "bahar_books"
+SHEET_BAHAR_QUESTIONS   = "bahar_questions"
 
 SHEET_NAMES = [SHEET_LOGS, SHEET_TARGETS, SHEET_SUBJECTS, SHEET_HOLIDAYS,
-               SHEET_EXAM_LOGS, SHEET_EXAM_RESULTS]
+               SHEET_EXAM_LOGS, SHEET_EXAM_RESULTS,
+               SHEET_BAHAR_BOOKS, SHEET_BAHAR_QUESTIONS]
 
 # ─── Sheet Başlıkları ─────────────────────────────────────────
 LOGS_COLUMNS        = ["Date", "ChildName", "Subject", "Solved", "Incorrect", "Blank"]
@@ -69,8 +72,10 @@ SUBJECTS_COLUMNS    = ["ChildName", "Subject"]
 HOLIDAYS_COLUMNS    = ["Date", "Reason"]
 EXAM_LOGS_COLUMNS   = ["ExamDate", "ExamName", "ChildName", "ExamType", "Subject", "Correct", "Incorrect", "Blank", "Net"]
 EXAM_RESULTS_COLUMNS = ["ExamDate", "ChildName", "ExamType", "Score", "Rank"]
+BAHAR_BOOKS_COLUMNS      = ["Date", "ChildName", "BookName", "PagesRead"]
+BAHAR_QUESTIONS_COLUMNS  = ["Date", "ChildName", "TotalQuestions"]
 
-# ─── Sınav Standartları (LGS) ──────────────────────────────────
+# ─── Sınav Standartları (LGS)
 EXAM_TYPES = ["LGS"]
 
 EXAM_STANDARDS = {
