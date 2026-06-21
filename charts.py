@@ -62,13 +62,11 @@ def chart_daily_trend(logs: pd.DataFrame, children: list[str] = None) -> go.Figu
         daily = child_logs.groupby("Date")["Solved"].sum().reset_index()
         daily = daily.sort_values("Date")
 
-        fig.add_trace(go.Scatter(
+        fig.add_trace(go.Bar(
             x=daily["Date"],
             y=daily["Solved"],
-            mode="lines+markers",
             name=child,
-            line=dict(color=CHART_COLORS[i % len(CHART_COLORS)], width=2),
-            marker=dict(size=6),
+            marker=dict(color=CHART_COLORS[i % len(CHART_COLORS)]),
         ))
 
     _apply_layout(fig, "📈 Günlük Soru Trendi")
