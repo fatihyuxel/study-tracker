@@ -180,6 +180,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption(f"🕐 {datetime.now(ZoneInfo(TR_TZ)).strftime('%d.%m.%Y %H:%M')}")
+    st.caption("v2.2 — ondalık fix")
 
 
 # ═══════════════════════════════════════════════════════════════

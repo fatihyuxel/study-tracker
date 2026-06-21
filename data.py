@@ -93,10 +93,10 @@ def _read_sheet(sheet_name: str, columns: list[str]) -> pd.DataFrame:
         ensure_sheets()
         ws = sh.worksheet(sheet_name)
 
-    # UNFORMATTED_VALUE kullanarak numericise hatasını önle:
-    # Türkçe locale'de "17,3" → 173 olmasını engeller.
-    # Ham float değerleri (17.3) olarak gelir.
-    values = ws.get_all_values(value_render_option='UNFORMATTED_VALUE')
+    # FORMATTED_VALUE (default) kullan: tüm değerler string gelir.
+    # numericise KULLANMİYORUZ — Türkçe locale'de "17,3" → 173 hatası olur.
+    # Parsing'i kendimiz yapıyoruz (_fix_decimal ve pd.to_numeric ile).
+    values = ws.get_all_values()
     if not values or len(values) < 2:
         return pd.DataFrame(columns=columns)
 
