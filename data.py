@@ -645,3 +645,129 @@ def get_child_exam_logs(child_name: str, exam_date: str = None,
     if not result.empty:
         result = result.sort_values("ExamDate", ascending=False)
     return result
+
+
+# ═══════════════════════════════════════════════════════════════
+#  BAHAR CRUD FONKSİYONLARI
+# ═══════════════════════════════════════════════════════════════
+
+def save_bahar_book(entry_date: str, book_name: str, pages_read: int):
+    """Bahar'ın kitap okuma kaydını ekle."""
+    sh = get_spreadsheet()
+    ws = sh.worksheet(SHEET_BAHAR_BOOKS)
+    ws.append_row([entry_date, "Bahar", book_name, pages_read])
+    clear_all_caches()
+
+
+def get_bahar_books_for_date(entry_date: str) -> pd.DataFrame:
+    """Belirli tarihteki kitap okuma kayıtlarını döndür."""
+    df = get_bahar_books()
+    if df.empty:
+        return pd.DataFrame(columns=BAHAR_BOOKS_COLUMNS)
+    mask = df["Date"] == entry_date
+    return df[mask].copy()
+
+
+def update_bahar_book(entry_date: str, book_name: str, pages_read: int):
+    """Mevcut kitap kaydını güncelle."""
+    df = get_bahar_books()
+    if df.empty:
+        return
+    sh = get_spreadsheet()
+    ws = sh.worksheet(SHEET_BAHAR_BOOKS)
+    mask = (df["Date"] == entry_date) & (df["BookName"] == book_name)
+    matches = df[mask]
+    if matches.empty:
+        return
+    idx = matches.index[0] + 2  # +2: 0-indexed + başlık
+    ws.update(range_name=f"A{idx}:D{idx}",
+              values=[["Bahar", entry_date, book_name, pages_read]])
+    clear_all_caches()
+
+
+def delete_bahar_book(entry_date: str, book_name: str):
+    """Kitap kaydını sil."""
+    df = get_bahar_books()
+    if df.empty:
+        return
+    sh = get_spreadsheet()
+    ws = sh.worksheet(SHEET_BAHAR_BOOKS)
+    mask = (df["Date"] == entry_date) & (df["BookName"] == book_name)
+    indices = df[mask].index.tolist()
+    for idx in reversed(indices):
+        ws.delete_rows(idx + 2)
+    clear_all_caches()
+
+
+def save_bahar_questions(entry_date: str, total_questions: int):
+    """Bahar'ın soru kaydını ekle/güncelle (upsert)."""
+    df = get_bahar_questions()
+    sh = get_spreadsheet()
+    ws = sh.worksheet(SHEET_BAHAR_QUESTIONS)
+
+    if not df.empty:
+        mask = df["Date"] == entry_date
+        matches = df[mask]
+        if not matches.empty:
+            # Güncelle
+            idx = matches.index[0] + 2
+            ws.update(range_name=f"A{idx}:C{idx}",
+                      values=[["Bahar", entry_date, total_questions]])
+            clear_all_caches()
+            return
+
+    # Yeni kayıt
+    ws.append_row(["Bahar", entry_date, total_questions])
+    clear_all_caches()
+
+
+def get_bahar_questions_for_date(entry_date: str) -> int | None:
+    """Belirli tarihteki soru sayısını döndür. Yoksa None."""
+    df = get_bahar_questions()
+    if df.empty:
+        return None
+    mask = df["Date"] == entry_date
+    matches = df[mask]
+    if matches.empty:
+        return None
+    return int(matches.iloc[0]["TotalQuestions"])
+
+
+def get_bahar_streak() -> int:
+    """
+    Bahar için ardışık gün streak'i.
+    Bir gün "tamamlanmış" sayılır: o gün kitap okuma VEYA soru kaydı varsa.
+    """
+    books = get_bahar_books()
+    questions = get_bahar_questions()
+
+    # Hangi günlerde kayıt var?
+    book_dates = set(books["Date"].tolist()) if not books.empty else set()
+    question_dates = set(questions["Date"].tolist()) if not questions.empty else set()
+    active_dates = book_dates | question_dates
+
+    if not active_dates:
+        return 0
+
+    today = datetime.now(ZoneInfo(TR_TZ)).date()
+    streak = 0
+
+    for i in range(365):
+        check = today - timedelta(days=i)
+        check_str = check.strftime("%Y-%m-%d")
+
+        # Tatil günü → streak devam eder
+        if is_holiday(check_str):
+            streak += 1
+            continue
+
+        # Plansız gün (hafta sonu vb.) → atla
+        # Not: Bahar'ın planı yok, bu yüzden her gün aktif sayılır
+        # Ancak tatil günleri zaten yukarında handle ediliyor
+
+        if check_str in active_dates:
+            streak += 1
+        else:
+            break
+
+    return streak
