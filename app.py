@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 from config import (
     CHILDREN, DAY_NAMES, DAY_NAMES_SHORT, TR_TZ, EMOJI, COLORS,
+    EXAM_TYPES,
 )
 from data import (
     ensure_sheets, today_str, today_weekday, is_holiday,
@@ -21,7 +22,8 @@ from data import (
     save_log, update_log, save_targets,
     add_subject, remove_subject,
     add_holiday, remove_holiday,
-    clear_all_caches,
+    get_exam_logs, get_exam_results, get_exam_subjects,
+    calculate_net, save_exam, get_child_exam_results, get_child_exam_logs,
 )
 from charts import (
     chart_daily_trend, chart_error_analysis,
@@ -299,6 +301,11 @@ def show_child_workspace(child_name: str):
     # ─── GEÇMİŞ KAYITLAR ─────────────────────────────────────
     _show_past_records(child_name)
 
+    st.markdown("---")
+
+    # ─── SINAV GİRİŞİ ────────────────────────────────────────
+    _show_exam_entry(child_name)
+
 
 # ─── Veri Giriş Formu ─────────────────────────────────────────
 
@@ -315,8 +322,8 @@ def _show_data_entry_form(child_name: str, today: str, today_targets):
         planned_subjects = today_targets
 
     all_subjects = get_child_subjects(child_name)
-    # Birleştir, sıralı ve benzersiz
-    subject_list = list(dict.fromkeys(planned_subjects + all_subjects))
+    # Birleştir, benzersiz ve isim sırasına göre sırala
+    subject_list = sorted(set(planned_subjects + all_subjects))
 
     with st.form("data_entry", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -451,11 +458,12 @@ def show_parent_dashboard():
     """Ebevyn ana paneli."""
     st.markdown(f"## 👨‍👩‍👧 Ebeveyn Paneli")
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         f"{EMOJI['chart']} Analiz",
         f"{EMOJI['plan']} Haftalık Plan",
         f"{EMOJI['book']} Dersler",
         f"{EMOJI['holiday']} Tatiller",
+        f"📊 Sınav Analizi",
     ])
 
     # ─── TAB 1: ANALİZ ───────────────────────────────────────
@@ -473,6 +481,10 @@ def show_parent_dashboard():
     # ─── TAB 4: TATİL YÖNETİMİ ───────────────────────────────
     with tab4:
         _show_holiday_management()
+
+    # ─── TAB 5: SINAV ANALİZİ ────────────────────────────────
+    with tab5:
+        _show_exam_analysis()
 
 
 # ─── ANALİZ TAB'I ─────────────────────────────────────────────
@@ -732,6 +744,191 @@ def _show_holiday_management():
                 add_holiday(date_str, reason.strip() if reason else "")
                 st.success(f"{EMOJI['holiday']} Tatil eklendi: {_format_date_tr(date_str)}")
                 st.rerun()
+
+
+# ─── SINAV GİRİŞİ TAB'I ──────────────────────────────────────
+
+def _show_exam_entry(child_name: str):
+    """Deneme sınavı sonuçlarını gir."""
+    st.markdown("### 📝 Deneme Sınavı Sonuçları")
+    
+    # Sınav türü seçimi (şimdilik sadece LGS)
+    exam_type = EXAM_TYPES[0]  # LGS
+    
+    # Sınav tarihi
+    exam_date = st.date_input(
+        "Sınav Tarihi",
+        value=datetime.now(ZoneInfo(TR_TZ)).date(),
+        format="DD.MM.YYYY",
+        key="exam_date",
+    )
+    
+    # Sınav puanı ve sıralama
+    col1, col2 = st.columns(2)
+    with col1:
+        score = st.number_input(
+            "Sınav Puanı",
+            min_value=0.0,
+            max_value=500.0,
+            value=0.0,
+            step=0.001,
+            format="%.3f",
+            key="exam_score",
+        )
+    with col2:
+        rank = st.number_input(
+            "Sıralama (Derece)",
+            min_value=1,
+            value=1,
+            step=1,
+            key="exam_rank",
+        )
+    
+    # Ders bazlı sonuçlar
+    st.markdown("---")
+    st.markdown(f"#### 📚 {exam_type} Ders Sonuçları")
+    
+    subjects = get_exam_subjects(exam_type)
+    subjects_data = []
+    
+    for subj_info in subjects:
+        subject = subj_info["Subject"]
+        total_q = subj_info["TotalQuestions"]
+        
+        st.markdown(f"**{subject}** ({total_q} soru)")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            correct = st.number_input(
+                "Doğru",
+                min_value=0,
+                max_value=total_q,
+                value=0,
+                key=f"exam_correct_{subject}",
+            )
+        with col2:
+            incorrect = st.number_input(
+                "Yanlış",
+                min_value=0,
+                max_value=total_q,
+                value=0,
+                key=f"exam_incorrect_{subject}",
+            )
+        with col3:
+            blank = st.number_input(
+                "Boş",
+                min_value=0,
+                max_value=total_q,
+                value=0,
+                key=f"exam_blank_{subject}",
+            )
+        
+        # Net hesapla ve göster
+        net = calculate_net(correct, incorrect)
+        st.caption(f"Net: {net} | Toplam: {correct + incorrect + blank}/{total_q}")
+        
+        # Doğrulama
+        if correct + incorrect + blank > total_q:
+            st.error(f"⚠️ {subject}: Toplam soru sayısı {total_q}'ı geçemez!")
+        
+        subjects_data.append({
+            "Subject": subject,
+            "Correct": correct,
+            "Incorrect": incorrect,
+            "Blank": blank,
+        })
+    
+    # Kaydet butonu
+    st.markdown("---")
+    if st.button(f"{EMOJI['save']} Sınav Sonuçlarını Kaydet", use_container_width=True, type="primary"):
+        # Doğrulama
+        total_correct = sum(d["Correct"] for d in subjects_data)
+        total_incorrect = sum(d["Incorrect"] for d in subjects_data)
+        total_blank = sum(d["Blank"] for d in subjects_data)
+        
+        if total_correct + total_incorrect + total_blank == 0:
+            st.error("En az bir ders için veri girilmeli!")
+        else:
+            exam_date_str = exam_date.strftime("%Y-%m-%d")
+            save_exam(child_name, exam_type, exam_date_str, score, rank, subjects_data)
+            st.success(f"{EMOJI['success']} {child_name} - {exam_type} sınav sonuçları kaydedildi!")
+            st.rerun()
+
+
+# ─── SINAV ANALİZİ TAB'I ─────────────────────────────────────
+
+def _show_exam_analysis():
+    """Sınav analizi grafikleri."""
+    st.markdown("### 📊 Sınav Analizi")
+    
+    # Çocuk seçimi
+    child_name = st.selectbox("Çocuk", CHILDREN, key="exam_analysis_child")
+    
+    # Sınav türü (şimdilik sadece LGS)
+    exam_type = EXAM_TYPES[0]
+    
+    # Verileri çek
+    results = get_child_exam_results(child_name, exam_type)
+    exam_logs = get_child_exam_logs(child_name, exam_type=exam_type)
+    
+    if results.empty:
+        st.info("Henüz sınav sonucu girilmemiş.")
+        return
+    
+    # ─── SONUÇ TABLOSU ─────────────────────────────────────────
+    st.markdown("#### 📋 Sınav Sonuçları")
+    
+    display_df = results[["ExamDate", "Score", "Rank"]].copy()
+    display_df.columns = ["Tarih", "Puan", "Sıralama"]
+    display_df["Tarih"] = display_df["Tarih"].apply(_format_date_tr)
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    
+    # ─── GRAFİKLER ─────────────────────────────────────────────
+    if len(results) > 1:
+        st.markdown("#### 📈 Trend Grafikleri")
+        
+        # Puan ve sıralama trendi
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Puan Trendi**")
+            chart_data = results[["ExamDate", "Score"]].sort_values("ExamDate")
+            chart_data["ExamDate"] = chart_data["ExamDate"].apply(
+                lambda x: _format_date_tr(x).split(",")[0]
+            )
+            st.line_chart(chart_data.set_index("ExamDate")["Score"], use_container_width=True)
+        
+        with col2:
+            st.markdown("**Sıralama Trendi** (Düşük = İyi)")
+            chart_data = results[["ExamDate", "Rank"]].sort_values("ExamDate")
+            chart_data["ExamDate"] = chart_data["ExamDate"].apply(
+                lambda x: _format_date_tr(x).split(",")[0]
+            )
+            st.line_chart(chart_data.set_index("ExamDate")["Rank"], use_container_width=True)
+    
+    # ─── DERS BAZINDA NET ORTALAMASI ────────────────────────────
+    if not exam_logs.empty:
+        st.markdown("#### 📊 Ders Bazında Net Ortalaması")
+        
+        avg_nets = exam_logs.groupby("Subject")["Net"].mean().reset_index()
+        avg_nets.columns = ["Ders", "Ortalama Net"]
+        avg_nets = avg_nets.sort_values("Ortalama Net", ascending=False)
+        
+        st.bar_chart(avg_nets.set_index("Ders")["Ortalama Net"], use_container_width=True)
+    
+    # ─── SON SINAV DETAYI ───────────────────────────────────────
+    if not exam_logs.empty:
+        st.markdown("#### 🔍 Son Sınav Detayı")
+        
+        last_exam_date = results.iloc[0]["ExamDate"]
+        last_exam = exam_logs[exam_logs["ExamDate"] == last_exam_date].copy()
+        
+        if not last_exam.empty:
+            st.caption(f"Tarih: {_format_date_tr(last_exam_date)}")
+            
+            display_log = last_exam[["Subject", "Correct", "Incorrect", "Blank", "Net"]].copy()
+            display_log.columns = ["Ders", "Doğru", "Yanlış", "Boş", "Net"]
+            st.dataframe(display_log, use_container_width=True, hide_index=True)
 
 
 # ═══════════════════════════════════════════════════════════════

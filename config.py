@@ -52,18 +52,37 @@ CHART_COLORS = [
 TR_TZ = "Europe/Istanbul"
 
 # ─── Google Sheets Sayfa İsimleri ─────────────────────────────
-SHEET_LOGS      = "logs"
-SHEET_TARGETS   = "targets"
-SHEET_SUBJECTS  = "subjects"
-SHEET_HOLIDAYS  = "holidays"
+SHEET_LOGS        = "logs"
+SHEET_TARGETS     = "targets"
+SHEET_SUBJECTS    = "subjects"
+SHEET_HOLIDAYS    = "holidays"
+SHEET_EXAM_LOGS   = "exam_logs"
+SHEET_EXAM_RESULTS = "exam_results"
 
-SHEET_NAMES = [SHEET_LOGS, SHEET_TARGETS, SHEET_SUBJECTS, SHEET_HOLIDAYS]
+SHEET_NAMES = [SHEET_LOGS, SHEET_TARGETS, SHEET_SUBJECTS, SHEET_HOLIDAYS,
+               SHEET_EXAM_LOGS, SHEET_EXAM_RESULTS]
 
 # ─── Sheet Başlıkları ─────────────────────────────────────────
-LOGS_COLUMNS     = ["Date", "ChildName", "Subject", "Solved", "Incorrect", "Blank"]
-TARGETS_COLUMNS  = ["ChildName", "Subject", "DayOfWeek", "TargetCount"]
-SUBJECTS_COLUMNS = ["ChildName", "Subject"]
-HOLIDAYS_COLUMNS = ["Date", "Reason"]
+LOGS_COLUMNS        = ["Date", "ChildName", "Subject", "Solved", "Incorrect", "Blank"]
+TARGETS_COLUMNS     = ["ChildName", "Subject", "DayOfWeek", "TargetCount"]
+SUBJECTS_COLUMNS    = ["ChildName", "Subject"]
+HOLIDAYS_COLUMNS    = ["Date", "Reason"]
+EXAM_LOGS_COLUMNS   = ["ExamDate", "ChildName", "ExamType", "Subject", "Correct", "Incorrect", "Blank", "Net"]
+EXAM_RESULTS_COLUMNS = ["ExamDate", "ChildName", "ExamType", "Score", "Rank"]
+
+# ─── Sınav Standartları (LGS) ──────────────────────────────────
+EXAM_TYPES = ["LGS"]
+
+EXAM_STANDARDS = {
+    "LGS": [
+        {"Subject": "Matematik", "TotalQuestions": 20},
+        {"Subject": "Fen Bilgisi", "TotalQuestions": 20},
+        {"Subject": "Türkçe", "TotalQuestions": 20},
+        {"Subject": "İnkılap", "TotalQuestions": 10},
+        {"Subject": "Din Kültürü", "TotalQuestions": 10},
+        {"Subject": "İngilizce", "TotalQuestions": 10},
+    ],
+}
 
 # ─── Emoji'ler ────────────────────────────────────────────────
 EMOJI = {

@@ -12,7 +12,10 @@ from zoneinfo import ZoneInfo
 from config import (
     CHILDREN, TR_TZ, SHEET_NAMES,
     SHEET_LOGS, SHEET_TARGETS, SHEET_SUBJECTS, SHEET_HOLIDAYS,
+    SHEET_EXAM_LOGS, SHEET_EXAM_RESULTS,
     LOGS_COLUMNS, TARGETS_COLUMNS, SUBJECTS_COLUMNS, HOLIDAYS_COLUMNS,
+    EXAM_LOGS_COLUMNS, EXAM_RESULTS_COLUMNS,
+    EXAM_STANDARDS,
 )
 
 
@@ -62,10 +65,12 @@ def ensure_sheets():
     existing = {ws.title for ws in sh.worksheets()}
 
     sheet_defs = {
-        SHEET_LOGS:      LOGS_COLUMNS,
-        SHEET_TARGETS:   TARGETS_COLUMNS,
-        SHEET_SUBJECTS:  SUBJECTS_COLUMNS,
-        SHEET_HOLIDAYS:  HOLIDAYS_COLUMNS,
+        SHEET_LOGS:        LOGS_COLUMNS,
+        SHEET_TARGETS:     TARGETS_COLUMNS,
+        SHEET_SUBJECTS:    SUBJECTS_COLUMNS,
+        SHEET_HOLIDAYS:    HOLIDAYS_COLUMNS,
+        SHEET_EXAM_LOGS:   EXAM_LOGS_COLUMNS,
+        SHEET_EXAM_RESULTS: EXAM_RESULTS_COLUMNS,
     }
 
     for name, columns in sheet_defs.items():
@@ -146,6 +151,8 @@ def clear_all_caches():
     get_targets.clear()
     get_subjects.clear()
     get_holidays.clear()
+    get_exam_logs.clear()
+    get_exam_results.clear()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -488,3 +495,104 @@ def get_streak(child_name: str) -> int:
             break
 
     return streak
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SINAV İŞLEMLERİ
+# ═══════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=60)
+def get_exam_logs() -> pd.DataFrame:
+    """Tüm sınav ders loglarını oku."""
+    df = _read_sheet(SHEET_EXAM_LOGS, EXAM_LOGS_COLUMNS)
+    if not df.empty:
+        df["ExamDate"] = df["ExamDate"].astype(str)
+        for col in ["Correct", "Incorrect", "Blank"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+        df["Net"] = pd.to_numeric(df["Net"], errors="coerce").fillna(0.0)
+    return df
+
+
+@st.cache_data(ttl=60)
+def get_exam_results() -> pd.DataFrame:
+    """Tüm sınav sonuçlarını (puan + sıralama) oku."""
+    df = _read_sheet(SHEET_EXAM_RESULTS, EXAM_RESULTS_COLUMNS)
+    if not df.empty:
+        df["ExamDate"] = df["ExamDate"].astype(str)
+        df["Score"] = pd.to_numeric(df["Score"], errors="coerce").fillna(0.0)
+        df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce").fillna(0).astype(int)
+    return df
+
+
+def get_exam_subjects(exam_type: str) -> list[dict]:
+    """Belirli bir sınav türünün derslerini ve soru sayılarını döndür."""
+    return EXAM_STANDARDS.get(exam_type, [])
+
+
+def calculate_net(correct: int, incorrect: int) -> float:
+    """Net hesapla: Net = Doğru - (Yanlış / 3)"""
+    return round(correct - (incorrect / 3), 1)
+
+
+def save_exam(child_name: str, exam_type: str, exam_date: str,
+              score: float, rank: int, subjects_data: list[dict]):
+    """
+    Sınav sonucunu kaydet.
+    subjects_data = [{"Subject": "...", "Correct": N, "Incorrect": N, "Blank": N}, ...]
+    """
+    sh = get_spreadsheet()
+    
+    # 1. ExamResults'e kaydet (puan + sıralama)
+    ws_results = sh.worksheet(SHEET_EXAM_RESULTS)
+    ws_results.append_row([exam_date, child_name, exam_type, score, rank])
+    
+    # 2. ExamLogs'a kaydet (ders bazlı)
+    ws_logs = sh.worksheet(SHEET_EXAM_LOGS)
+    rows = []
+    for subj_data in subjects_data:
+        correct = subj_data["Correct"]
+        incorrect = subj_data["Incorrect"]
+        blank = subj_data["Blank"]
+        net = calculate_net(correct, incorrect)
+        rows.append([exam_date, child_name, exam_type, 
+                     subj_data["Subject"], correct, incorrect, blank, net])
+    
+    if rows:
+        ws_logs.append_rows(rows)
+    
+    clear_all_caches()
+
+
+def get_child_exam_results(child_name: str, exam_type: str = None) -> pd.DataFrame:
+    """Bir çocuğun sınav sonuçlarını döndür."""
+    df = get_exam_results()
+    if df.empty:
+        return pd.DataFrame(columns=EXAM_RESULTS_COLUMNS)
+    
+    mask = df["ChildName"] == child_name
+    if exam_type:
+        mask = mask & (df["ExamType"] == exam_type)
+    
+    result = df[mask].copy()
+    if not result.empty:
+        result = result.sort_values("ExamDate", ascending=False)
+    return result
+
+
+def get_child_exam_logs(child_name: str, exam_date: str = None, 
+                        exam_type: str = None) -> pd.DataFrame:
+    """Bir çocuğun sınav ders loglarını döndür."""
+    df = get_exam_logs()
+    if df.empty:
+        return pd.DataFrame(columns=EXAM_LOGS_COLUMNS)
+    
+    mask = df["ChildName"] == child_name
+    if exam_date:
+        mask = mask & (df["ExamDate"] == exam_date)
+    if exam_type:
+        mask = mask & (df["ExamType"] == exam_type)
+    
+    result = df[mask].copy()
+    if not result.empty:
+        result = result.sort_values("ExamDate", ascending=False)
+    return result
