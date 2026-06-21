@@ -478,7 +478,7 @@ def _show_analytics():
     with col1:
         child_filter = st.selectbox(
             "Çocuk",
-            ["Tümü"] + CHILDREN,
+            CHILDREN,
             key="analytics_child",
         )
     with col2:
@@ -496,7 +496,7 @@ def _show_analytics():
 
     # Filtreleri uygula
     filtered = logs.copy()
-    if child_filter != "Tümü":
+    if child_filter:
         filtered = filtered[filtered["ChildName"] == child_filter]
 
     if date_range and len(date_range) == 2:
