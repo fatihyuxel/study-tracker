@@ -535,7 +535,7 @@ def calculate_net(correct: int, incorrect: int) -> float:
 
 
 def save_exam(child_name: str, exam_type: str, exam_date: str,
-              score: float, rank: int, subjects_data: list[dict]):
+              exam_name: str, score: float, rank: int, subjects_data: list[dict]):
     """
     Sınav sonucunu kaydet.
     subjects_data = [{"Subject": "...", "Correct": N, "Incorrect": N, "Blank": N}, ...]
@@ -554,7 +554,7 @@ def save_exam(child_name: str, exam_type: str, exam_date: str,
         incorrect = subj_data["Incorrect"]
         blank = subj_data["Blank"]
         net = calculate_net(correct, incorrect)
-        rows.append([exam_date, child_name, exam_type, 
+        rows.append([exam_date, exam_name, child_name, exam_type, 
                      subj_data["Subject"], correct, incorrect, blank, net])
     
     if rows:

@@ -67,7 +67,7 @@ LOGS_COLUMNS        = ["Date", "ChildName", "Subject", "Solved", "Incorrect", "B
 TARGETS_COLUMNS     = ["ChildName", "Subject", "DayOfWeek", "TargetCount"]
 SUBJECTS_COLUMNS    = ["ChildName", "Subject"]
 HOLIDAYS_COLUMNS    = ["Date", "Reason"]
-EXAM_LOGS_COLUMNS   = ["ExamDate", "ChildName", "ExamType", "Subject", "Correct", "Incorrect", "Blank", "Net"]
+EXAM_LOGS_COLUMNS   = ["ExamDate", "ExamName", "ChildName", "ExamType", "Subject", "Correct", "Incorrect", "Blank", "Net"]
 EXAM_RESULTS_COLUMNS = ["ExamDate", "ChildName", "ExamType", "Score", "Rank"]
 
 # ─── Sınav Standartları (LGS) ──────────────────────────────────

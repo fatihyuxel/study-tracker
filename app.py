@@ -751,6 +751,9 @@ def _show_exam_entry(child_name: str):
             format="DD.MM.YYYY",
         )
         
+        # Sınav adı
+        exam_name = st.text_input("Sınav Adı", placeholder="Örn: Deneme 1, Deneme 2")
+        
         # Sınav puanı ve sıralama
         col1, col2 = st.columns(2)
         with col1:
@@ -834,9 +837,11 @@ def _show_exam_entry(child_name: str):
             
             if total_correct + total_incorrect + total_blank == 0:
                 st.error("En az bir ders için veri girilmeli!")
+            elif not exam_name or not exam_name.strip():
+                st.error("Sınav adı girilmeli!")
             else:
                 exam_date_str = exam_date.strftime("%Y-%m-%d")
-                save_exam(child_name, exam_type, exam_date_str, score, rank, subjects_data)
+                save_exam(child_name, exam_type, exam_date_str, exam_name.strip(), score, rank, subjects_data)
                 st.session_state.exam_saved = True
                 st.rerun()
 
@@ -864,8 +869,12 @@ def _show_exam_analysis():
     # ─── SONUÇ TABLOSU ─────────────────────────────────────────
     st.markdown("#### 📋 Sınav Sonuçları")
     
-    display_df = results[["ExamDate", "Score", "Rank"]].copy()
-    display_df.columns = ["Tarih", "Puan", "Sıralama"]
+    if "ExamName" in results.columns:
+        display_df = results[["ExamDate", "ExamName", "Score", "Rank"]].copy()
+        display_df.columns = ["Tarih", "Sınav Adı", "Puan", "Sıralama"]
+    else:
+        display_df = results[["ExamDate", "Score", "Rank"]].copy()
+        display_df.columns = ["Tarih", "Puan", "Sıralama"]
     display_df["Tarih"] = display_df["Tarih"].apply(_format_date_tr)
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     
