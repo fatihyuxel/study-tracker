@@ -407,11 +407,11 @@ def _show_past_records(child_name: str):
         blank = int(row["Blank"])
         net = solved - incorrect - blank
 
-        with st.expander(f"📝 {subj} — {solved} soru (Net: {net})", expanded=False):
+        with st.expander(f"📝 {subj} — {solved} doğru soru (Net: {net})", expanded=False):
             with st.form(f"edit_{selected_date}_{subj}", clear_on_submit=False):
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    new_solved = st.number_input("Soru", min_value=0, value=solved, key=f"s_{selected_date}_{subj}")
+                    new_solved = st.number_input("Doğru", min_value=0, value=solved, key=f"s_{selected_date}_{subj}")
                 with col2:
                     new_incorrect = st.number_input("Yanlış", min_value=0, value=incorrect, key=f"i_{selected_date}_{subj}")
                 with col3:
@@ -419,7 +419,7 @@ def _show_past_records(child_name: str):
 
                 if st.form_submit_button(f"{EMOJI['save']} Güncelle", use_container_width=True):
                     if new_incorrect + new_blank > new_solved:
-                        st.error("Yanlış + Boş, soru sayısından büyük olamaz!")
+                        st.error("Yanlış + Boş, doğru sayısından büyük olamaz!")
                     else:
                         update_log(child_name, selected_date, subj, new_solved, new_incorrect, new_blank)
                         st.success(f"{EMOJI['success']} Güncellendi!")
