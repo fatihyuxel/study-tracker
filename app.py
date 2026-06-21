@@ -777,6 +777,11 @@ def _show_plan_management():
     for child in CHILDREN:
         st.markdown(f"### 👧 {child}")
 
+        if child == "Bahar":
+            st.info("Bahar'ın haftalık planı yok — serbest çalışma modu.")
+            st.markdown("---")
+            continue
+
         # Mevcut planı oku
         targets = get_child_targets(child)
         subjects = list(dict.fromkeys(get_child_subjects(child)))  # benzersiz
@@ -845,6 +850,11 @@ def _show_subject_management():
     """Ders ekleme/silme."""
     for child in CHILDREN:
         st.markdown(f"### 👧 {child}")
+
+        if child == "Bahar":
+            st.info("Bahar ders bazında takip etmiyor — kitap okuma ve toplam soru takibi var.")
+            st.markdown("---")
+            continue
 
         subjects = get_child_subjects(child)
 
