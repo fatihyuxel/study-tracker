@@ -512,7 +512,8 @@ def get_exam_logs() -> pd.DataFrame:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
         # Virgül ile ayrılmış ondalıkları düzelt (17,3 → 17.3)
         if "Net" in df.columns:
-            df["Net"] = df["Net"].astype(str).str.replace(",", ".").astype(float)
+            df["Net"] = df["Net"].astype(str).str.replace(",", ".").str.strip()
+            df["Net"] = pd.to_numeric(df["Net"], errors="coerce").fillna(0.0)
         else:
             df["Net"] = 0.0
     return df
