@@ -473,91 +473,94 @@ def _show_analytics():
         st.info("Henüz veri yok. Çocuklar veri girdikten sonra grafikler burada görünecek.")
         return
 
-    # Filtreler
-    col1, col2 = st.columns(2)
+    # Çocuk seçimi
+    child_filter = st.selectbox(
+        "Çocuk",
+        CHILDREN,
+        key="analytics_child",
+    )
+
+    # Tarih seçici (sol/sağ ok ile gezinme)
+    if "analytics_date" not in st.session_state:
+        st.session_state.analytics_date = datetime.now(ZoneInfo(TR_TZ)).date()
+
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
-        child_filter = st.selectbox(
-            "Çocuk",
-            CHILDREN,
-            key="analytics_child",
-        )
+        if st.button("←", key="date_prev"):
+            st.session_state.analytics_date -= timedelta(days=1)
+            st.rerun()
     with col2:
-        dates = sorted(logs["Date"].unique())
-        if len(dates) > 1:
-            date_range = st.date_input(
-                "Tarih Aralığı",
-                value=(datetime.strptime(dates[0], "%Y-%m-%d").date(),
-                       datetime.strptime(dates[-1], "%Y-%m-%d").date()),
-                format="DD.MM.YYYY",
-                key="analytics_dates",
-            )
-        else:
-            date_range = None
+        st.markdown(f"<h4 style='text-align:center;'>{_format_date_tr(st.session_state.analytics_date.strftime('%Y-%m-%d'))}</h4>", unsafe_allow_html=True)
+    with col3:
+        if st.button("→", key="date_next"):
+            st.session_state.analytics_date += timedelta(days=1)
+            st.rerun()
 
-    # Filtreleri uygula
-    filtered = logs.copy()
-    if child_filter:
-        filtered = filtered[filtered["ChildName"] == child_filter]
-
-    if date_range and len(date_range) == 2:
-        start, end = date_range
-        filtered = filtered[
-            (filtered["Date"] >= start.strftime("%Y-%m-%d")) &
-            (filtered["Date"] <= end.strftime("%Y-%m-%d"))
-        ]
+    # Seçilen tarihe göre filtrele
+    selected_date = st.session_state.analytics_date.strftime("%Y-%m-%d")
+    filtered = logs[(logs["ChildName"] == child_filter) & (logs["Date"] == selected_date)]
 
     if filtered.empty:
-        st.info("Seçilen filtrelerde veri yok.")
+        st.info(f"Bu tarihte {child_filter} için veri yok.")
         return
 
-    # Metrikler
-    total_solved = int(filtered["Solved"].sum())
-    total_incorrect = int(filtered["Incorrect"].sum())
-    total_blank = int(filtered["Blank"].sum())
-    net = total_solved - total_incorrect - total_blank
-    error_rate = ((total_incorrect + total_blank) / total_solved * 100) if total_solved > 0 else 0
+    # Ders bazlı tablo
+    st.markdown(f"### 📊 {child_filter} — {_format_date_tr(selected_date)}")
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("✅ Doğru", f"{total_solved}")
-    with col2:
-        st.metric("❌ Yanlış", f"{total_incorrect}")
-    with col3:
-        st.metric("📊 Net", f"{net}")
-    with col4:
-        st.metric("⚠️ Hata Oranı", f"{error_rate:.0f}%")
+    table_data = []
+    for _, row in filtered.iterrows():
+        subject = row["Subject"]
+        solved = int(row["Solved"])
+        incorrect = int(row["Incorrect"])
+        blank = int(row["Blank"])
+        net = solved - incorrect - blank
+        error_rate = ((incorrect + blank) / solved * 100) if solved > 0 else 0
+
+        table_data.append({
+            "Ders": subject,
+            "Doğru": solved,
+            "Yanlış": incorrect,
+            "Net": net,
+            "Hata Oranı": f"%{error_rate:.0f}",
+        })
+
+    import pandas as pd
+    df_table = pd.DataFrame(table_data)
+    st.dataframe(df_table, use_container_width=True, hide_index=True)
 
     st.markdown("---")
 
-    # Grafik 1: Trend
-    children_for_chart = CHILDREN if child_filter == "Tümü" else [child_filter]
-    st.plotly_chart(
-        chart_daily_trend(filtered, children_for_chart),
-        use_container_width=True,
-        config=dict(displayModeBar=False, responsive=True),
-    )
-
-    # Grafik 2 ve 3 yan yana (mobilde alt alta düşer)
-    col1, col2 = st.columns(2)
-    with col1:
+    # Grafikler (tarih aralığına göre)
+    child_logs = logs[logs["ChildName"] == child_filter].copy()
+    if not child_logs.empty:
+        # Grafik 1: Trend
         st.plotly_chart(
-            chart_error_analysis(filtered, child_filter if child_filter != "Tümü" else None),
-            use_container_width=True,
-            config=dict(displayModeBar=False, responsive=True),
-        )
-    with col2:
-        st.plotly_chart(
-            chart_subject_distribution(filtered, child_filter if child_filter != "Tümü" else None),
+            chart_daily_trend(child_logs, [child_filter]),
             use_container_width=True,
             config=dict(displayModeBar=False, responsive=True),
         )
 
-    # Ham veri (isteğe bağlı)
-    with st.expander("📋 Ham Veri Tablosu"):
-        display_df = filtered.copy()
-        display_df["Net"] = display_df["Solved"] - display_df["Incorrect"] - display_df["Blank"]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        # Grafik 2 ve 3 yan yana
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(
+                chart_error_analysis(child_logs, child_filter),
+                use_container_width=True,
+                config=dict(displayModeBar=False, responsive=True),
+            )
+        with col2:
+            st.plotly_chart(
+                chart_subject_distribution(child_logs, child_filter),
+                use_container_width=True,
+                config=dict(displayModeBar=False, responsive=True),
+            )
 
+        # Ham veri
+        with st.expander("📋 Ham Veri", expanded=False):
+            display_logs = child_logs[["Date", "Subject", "Solved", "Incorrect", "Blank"]].copy()
+            display_logs.columns = ["Tarih", "Ders", "Doğru", "Yanlış", "Boş"]
+            display_logs["Tarih"] = display_logs["Tarih"].apply(_format_date_tr)
+            st.dataframe(display_logs, use_container_width=True, hide_index=True)
 
 # ─── PLAN YÖNETİMİ TAB'I ─────────────────────────────────────
 
