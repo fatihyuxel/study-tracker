@@ -518,6 +518,7 @@ def _show_analytics():
             "Ders": subject,
             "Doğru": solved,
             "Yanlış": incorrect,
+            "Boş": blank,
             "Net": net,
             "Hata Oranı": f"%{error_rate:.0f}",
         })
