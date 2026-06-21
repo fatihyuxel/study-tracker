@@ -287,7 +287,7 @@ def show_child_workspace(child_name: str):
 
 def _show_data_entry_form(child_name: str, today: str, today_targets):
     """Veri giriş formu."""
-    st.markdown(f"### {EMOJI['pencil']} Soru Girişi")
+    st.markdown(f"### {EMOJI['pencil']} Günlük Çalışma Sonuçları")
 
     # Ders listesi: plan + subjects birleşimi
     planned_subjects = []
