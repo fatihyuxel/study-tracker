@@ -914,6 +914,7 @@ def _show_exam_analysis():
             
             display_log = last_exam[["Subject", "Correct", "Incorrect", "Blank", "Net"]].copy()
             display_log.columns = ["Ders", "Doğru", "Yanlış", "Boş", "Net"]
+            display_log["Net"] = display_log["Net"].apply(lambda x: f"{x:.1f}")
             st.dataframe(display_log, use_container_width=True, hide_index=True)
 
 
