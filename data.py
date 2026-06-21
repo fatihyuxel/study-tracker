@@ -507,9 +507,14 @@ def get_exam_logs() -> pd.DataFrame:
     df = _read_sheet(SHEET_EXAM_LOGS, EXAM_LOGS_COLUMNS)
     if not df.empty:
         df["ExamDate"] = df["ExamDate"].astype(str)
+        df["ExamName"] = df["ExamName"].astype(str)
         for col in ["Correct", "Incorrect", "Blank"]:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
-        df["Net"] = pd.to_numeric(df["Net"], errors="coerce").fillna(0.0)
+        # Virgül ile ayrılmış ondalıkları düzelt (17,3 → 17.3)
+        if "Net" in df.columns:
+            df["Net"] = df["Net"].astype(str).str.replace(",", ".").astype(float)
+        else:
+            df["Net"] = 0.0
     return df
 
 
