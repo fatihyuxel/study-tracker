@@ -333,7 +333,7 @@ def _show_data_entry_form(child_name: str, today: str, today_targets):
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            solved = st.number_input("✅ Soru Sayısı", min_value=0, step=1, value=0)
+            solved = st.number_input("✅ Doğru Sayısı", min_value=0, step=1, value=0)
         with col2:
             incorrect = st.number_input("❌ Yanlış", min_value=0, step=1, value=0)
         with col3:
