@@ -181,7 +181,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption(f"🕐 {datetime.now(ZoneInfo(TR_TZ)).strftime('%d.%m.%Y %H:%M')}")
-    st.caption("v2.3 — revizyonlar")
+    st.caption("v2.4 — Bahar eklendi")
 
 
 # ═══════════════════════════════════════════════════════════════
