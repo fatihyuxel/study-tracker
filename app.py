@@ -592,7 +592,7 @@ def _show_plan_management():
 
         # Mevcut planı oku
         targets = get_child_targets(child)
-        subjects = get_child_subjects(child)
+        subjects = list(dict.fromkeys(get_child_subjects(child)))  # benzersiz
 
         if not subjects:
             st.info(f"{child} için henüz ders eklenmedi. 'Dersler' sekmesinden ekleyin.")
