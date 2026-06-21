@@ -267,21 +267,6 @@ def show_child_workspace(child_name: str):
                 st.markdown(f"<div style='text-align:center; padding-top:8px; color:{color}; font-weight:700;'>{int(pct*100)}%</div>",
                             unsafe_allow_html=True)
 
-    # ─── STREAK + GENEL METRİKLER ────────────────────────────
-    streak = get_streak(child_name)
-    week_progress = get_weekly_progress(child_name)
-    week_actual = sum(v[0] for v in week_progress.values())
-    week_target = sum(v[1] for v in week_progress.values())
-    week_pct = int(week_actual / week_target * 100) if week_target > 0 else 0
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("🔥 Streak", f"{streak} gün")
-    with col2:
-        st.metric("📊 Haftalık", f"{week_pct}%")
-    with col3:
-        st.metric("📝 Bu Hafta", f"{week_actual} soru")
-
     st.markdown("---")
 
     # ─── VERİ GİRİŞİ FORMU ──────────────────────────────────
