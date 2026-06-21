@@ -8,7 +8,9 @@
 ## 📋 Proje Özeti
 
 Aile içi kullanım için tasarlanmış, Streamlit tabanlı çocuk çalışma takip sistemi.
-İki çocuk (Ayşe Bade ve Elmas) soru girişlerini kaydeder, ebevyn performans analizi yapar ve haftalık plan yönetir.
+Üç çocuk takip edilir:
+- **Ayşe Bade & Elmas:** Ders bazında soru takibi (Doğru/Yanlış/Boş), haftalık plan, sınav analizi
+- **Bahar:** Kitap okuma takibi (kitap adı + sayfa sayısı) ve toplam soru takibi (ders bazında değil)
 
 - **Teknoloji:** Python + Streamlit + Google Sheets + Plotly
 - **Hosting:** Streamlit Cloud (ücretsiz)
@@ -22,11 +24,14 @@ Aile içi kullanım için tasarlanmış, Streamlit tabanlı çocuk çalışma ta
 
 ```
 study_tracker/
+├── .hermes/
+│   ├── plans/                ← Implementation plan'ları
+│   └── specs/                ← Design spec dokümanları
 ├── .streamlit/
 │   ├── config.toml           ← Dark tema ayarları
 │   └── secrets.toml          ← Google Sheets credentials (gitignore'da)
 ├── app.py                    ← Ana uygulama (çocuk workspace + ebevyn paneli)
-├── charts.py                 ← Plotly grafik fonksiyonları (4 grafik türü)
+├── charts.py                 ← Plotly grafik fonksiyonları (6 grafik türü)
 ├── config.py                 ← Sabitler (isimler, günler, renkler, emoji'ler)
 ├── data.py                   ← Google Sheets CRUD fonksiyonları + cache yönetimi
 ├── requirements.txt          ← Python bağımlılıkları
@@ -38,7 +43,22 @@ study_tracker/
 
 ## 🗄️ Google Sheets Veri Yapısı
 
-Uygulama ilk açıldığında 4 sayfa otomatik oluşturulur:
+Uygulama ilk açıldığında 8 sayfa otomatik oluşturulur:
+@@ 5. `bahar_books` — Kitap Okuma Takibi
+| Sütun | Tip | Açıklama |
+|-------|-----|----------|
+| Date | str | YYYY-MM-DD formatında tarih |
+| ChildName | str | "Bahar" |
+| BookName | str | Kitap adı |
+| PagesRead | int | Okunan sayfa sayısı |
+
+### 6. `bahar_questions` — Soru Takibi
+| Sütun | Tip | Açıklama |
+|-------|-----|----------|
+| Date | str | YYYY-MM-DD formatında tarih |
+| ChildName | str | "Bahar" |
+| TotalQuestions | int | Çözülen toplam soru |
+
 
 ### 1. `logs` — Veri Girişleri
 | Sütun | Tip | Açıklama |
@@ -76,6 +96,20 @@ Uygulama ilk açıldığında 4 sayfa otomatik oluşturulur:
 
 ### Çocuk Workspace (Ayşe Bade / Elmas)
 
+### Çocuk Workspace (Bahar)
+
+Bahar'ın takip modeli diğer çocuklardan farklıdır:
+
+1. **Bugün bilgisi:** Türkiye saati (UTC+3) ile tarih ve gün adı
+2. **Tatil kontrolü:** Bugün tatil mi? → Evetse "Bugün tatil! 🏖️" banner'ı
+3. **Metrik kartları:** Bugün okunan sayfa, bugün çözülen soru, streak
+4. **Kitap okuma formu:** Tarih, Kitap Adı (text), Sayfa Sayısı
+5. **Soru formu:** Tarih, Toplam Soru Sayısı
+6. **Geçmiş kayıtlar:** Kitap ve soru ayrı tab'larda, düzenleme/silme
+
+**Not:** Bahar'ın haftalık planı ve ders bazlı takibi yoktur.
+
+
 1. **Bugün bilgisi:** Türkiye saati (UTC+3) ile tarih ve gün adı
 2. **Tatil kontrolü:** Bugün tatil mi? → Evetse "Bugün tatil! 🏖️" banner'ı
 3. **Plan kontrolü:** Ebevyn plan ayarlamamışsa → "Henüz plan oluşturulmamış 📋"
@@ -91,12 +125,13 @@ Uygulama ilk açıldığında 4 sayfa otomatik oluşturulur:
 4 sekme:
 
 #### 📊 Analiz
-- Tarih aralığı ve çocuk filtresi
+- Tarih aralığı ve çocuk filtresi (Ayşe Bade, Elmas, Bahar)
 - 4 metric card: Toplam, Net Doğru, Yanlış, Hata Oranı
 - Çizgi grafik: Günlük soru trendi
 - Bar grafik: Ders bazlı hata oranı
 - Pasta grafik: Ders dağılımı
 - Ham veri tablosu (isteğe bağlı)
+- **Bahar seçildiğinde:** Kitap okuma trendi, soru çözme trendi, toplam sayfa/soru metrikleri
 
 #### 📋 Haftalık Plan
 - Her çocuk için ayrı section
@@ -129,7 +164,7 @@ Uygulama ilk açıldığında 4 sayfa otomatik oluşturulur:
 
 ### Cache Yönetimi
 - Veri yazma sonrası `clear_all_caches()` çağrılır
-- 4 cache fonksiyonu: `get_logs()`, `get_targets()`, `get_subjects()`, `get_holidays()`
+- 6 cache fonksiyonu: `get_logs()`, `get_targets()`, `get_subjects()`, `get_holidays()`, `get_bahar_books()`, `get_bahar_questions()`
 - TTL: 60 saniye (otomatik yenileme)
 
 ### Doğrulama Kuralları
@@ -209,7 +244,17 @@ Uygulama ilk açıldığında 4 sayfa otomatik oluşturulur:
 - Hole: 0.4 (donut chart)
 - Fonksiyon: `chart_subject_distribution(logs, child_name)`
 
-### 4. Grouped Bar — Hedef vs Gerçekleşen
+### 4. Bar — Bahar Günlük Okunan Sayfa
+- X ekseni: tarih
+- Y ekseni: toplam okunan sayfa
+- Fonksiyon: `chart_bahar_books_daily(books_df)`
+
+### 5. Bar — Bahar Günlük Çözülen Soru
+- X ekseni: tarih
+- Y ekseni: toplam çözülen soru
+- Fonksiyon: `chart_bahar_questions_daily(questions_df)`
+
+### 6. Grouped Bar — Hedef vs Gerçekleşen
 - X ekseni: dersler
 - 2 bar: Hedef (mavi), Gerçekleşen (yeşil)
 - Fonksiyon: `chart_weekly_target_comparison(progress, child_name)`
@@ -253,6 +298,14 @@ client_x509_cert_url = "..."
 ---
 
 ## 🐛 Bilinen Sorunlar ve Çözümleri
+### 4. Bahar Veri Fonksiyonları UnboundLocalError
+- **Neden:** `get_bahar_books()` / `get_bahar_questions()` Google Sheets'ten veri çekerken hata fırlatabilir (sayfa boş, erişim sorunu)
+- **Çözüm:** Tüm Bahar veri fonksiyonları `try-except` ile sarıldı, hata durumunda boş DataFrame kullanılır
+
+### 5. Ebevyn Paneli Analiz Tablosunda Boş Sütunu Eksik
+- **Neden:** `app.py` satır 517-523 arası tablo verisi oluşturulurken `"Boş"` sütunu eklenmemiş
+- **Çözüm:** `"Boş": blank` tabloya eklendi
+
 
 ### 1. `AttributeError: 'list' object has no attribute 'empty'`
 - **Neden:** `today_targets` boş liste `[]` olarak geliyor
@@ -274,11 +327,13 @@ client_x509_cert_url = "..."
 - [ ] Bildirim sistemi (hedef tamamlandığında ebevyn bilgilendirme)
 - [ ] Export fonksiyonu (CSV/PDF)
 - [ ] Karşılaştırma görünümü (Ayşe Bade vs Elmas)
+- [ ] Bahar için haftalık hedef sistemi (günlük sayfa/soru hedefi)
 
 ### Orta Öncelikli
 - [ ] Haftalık/aylık özet raporlar
 - [ ] Ders bazlı trend analizi
 - [ ] Motivasyon mesajları (AI destekli)
+- [ ] Bahar kitap okuma hedefi (günlük sayfa hedefi)
 
 ### Düşük Öncelikli
 - [ ] Çoklu dil desteği
@@ -312,6 +367,22 @@ git push origin main
 # Streamlit Cloud otomatik deploy eder
 ```
 
+## 🧠 Superpowers Workflow ile Geliştirme
+
+Bu proje [obra/Superpowers](https://github.com/obra/Superpowers) metodolojisi ile geliştirilmiştir:
+
+1. **Brainstorming** — Gereksinimler tek tek sorularla keşfedilir
+2. **Spec** — `.hermes/specs/` altına design doc yazılır
+3. **Plan** — `.hermes/plans/` altına detaylı implementation plan yazılır
+4. **Subagent-driven execution** — Her task subagent ile uygulanır
+5. **Review** — Her task sonrası spec + kalite review
+6. **Deploy** — Push + Streamlit Cloud auto-deploy
+
+### Plan ve Spec Dosyaları
+- `.hermes/specs/2026-06-21-bahar-child-design.md` — Bahar ekleme tasarımı
+- `.hermes/plans/2026-06-21_143000-bahar-implementation.md` — 9 task'lık uygulama planı
+
+
 ---
 
 ## 📊 Veri Akışı Diyagramı
@@ -340,4 +411,4 @@ git push origin main
 
 ---
 
-*Son güncelleme: 19 Haziran 2026*
+*Son güncelleme: 21 Haziran 2026*
